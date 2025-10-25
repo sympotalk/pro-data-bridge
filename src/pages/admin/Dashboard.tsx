@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Calendar, Users, Hotel, TrendingUp } from "lucide-react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatCard } from "@/components/ui/stat-card";
@@ -12,39 +13,54 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-const recentEvents = [
-  {
-    id: 1,
-    name: "2025 글로벌 테크 컨퍼런스",
-    date: "2025-03-15",
-    participants: 245,
-    status: "active" as const,
-  },
-  {
-    id: 2,
-    name: "스타트업 네트워킹 데이",
-    date: "2025-03-20",
-    participants: 180,
-    status: "pending" as const,
-  },
-  {
-    id: 3,
-    name: "AI 혁신 포럼",
-    date: "2025-04-05",
-    participants: 320,
-    status: "active" as const,
-  },
-  {
-    id: 4,
-    name: "디자인 씽킹 워크샵",
-    date: "2025-04-12",
-    participants: 95,
-    status: "completed" as const,
-  },
-];
+type Event = {
+  id: string;
+  name: string;
+  start_date: string;
+  participant_count: number;
+  status: "active" | "pending" | "completed" | "cancelled";
+};
 
 export default function Dashboard() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchEvents() {
+      try {
+        console.log("[Supabase] Connecting...");
+        const { data, error } = await supabase
+          .from("events")
+          .select("id, name, start_date, participant_count, status")
+          .order("start_date", { ascending: false })
+          .limit(4);
+
+        if (error) {
+          console.error("[Supabase] Error:", error);
+          toast({
+            variant: "destructive",
+            title: "데이터 로드 실패",
+            description: error.message,
+          });
+          return;
+        }
+
+        console.log("[Supabase] Connected successfully");
+        console.log(`[Data] Events loaded: ${data?.length || 0} rows`);
+        setEvents((data || []) as Event[]);
+      } catch (err) {
+        console.error("[Supabase] Connection error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEvents();
+  }, [toast]);
   return (
     <AdminLayout>
       <div className="space-y-8">
@@ -105,16 +121,30 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentEvents.map((event) => (
-                      <TableRow key={event.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{event.name}</TableCell>
-                        <TableCell>{event.date}</TableCell>
-                        <TableCell>{event.participants}명</TableCell>
-                        <TableCell>
-                          <StatusBadge status={event.status} />
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          데이터를 불러오는 중...
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : events.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          등록된 행사가 없습니다.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      events.map((event) => (
+                        <TableRow key={event.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">{event.name}</TableCell>
+                          <TableCell>{event.start_date}</TableCell>
+                          <TableCell>{event.participant_count}명</TableCell>
+                          <TableCell>
+                            <StatusBadge status={event.status} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
