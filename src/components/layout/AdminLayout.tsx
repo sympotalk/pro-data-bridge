@@ -8,7 +8,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   return (
-    <div className="min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full bg-background">
       <Header />
       <div className="flex w-full pt-16">
         <Sidebar />
